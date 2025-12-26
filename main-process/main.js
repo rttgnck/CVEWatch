@@ -45,17 +45,62 @@ const isMac = process.platform === 'darwin';
 // Check for production mode: either explicitly set or running as packaged app
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
+// Log levels for production vs development
+const LOG_LEVELS = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
+const CURRENT_LOG_LEVEL = isDev ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN;
+const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB max log file size
+
 // Debug logging function - writes to file after app is ready
 let debugLogPath = null;
 function debugLog(...args) {
-  const msg = `[${new Date().toISOString()}] ${args.join(' ')}\n`;
+  // Only log DEBUG level in development
+  if (CURRENT_LOG_LEVEL < LOG_LEVELS.DEBUG) return;
+  
+  const msg = `[${new Date().toISOString()}] [DEBUG] ${args.join(' ')}\n`;
   console.log(...args);
-  if (debugLogPath) {
+  writeToLogFile(msg);
+}
+
+function errorLog(...args) {
+  const msg = `[${new Date().toISOString()}] [ERROR] ${args.join(' ')}\n`;
+  console.error(...args);
+  writeToLogFile(msg);
+}
+
+function warnLog(...args) {
+  if (CURRENT_LOG_LEVEL < LOG_LEVELS.WARN) return;
+  const msg = `[${new Date().toISOString()}] [WARN] ${args.join(' ')}\n`;
+  console.warn(...args);
+  writeToLogFile(msg);
+}
+
+function writeToLogFile(msg) {
+  if (!debugLogPath) return;
+  try {
+    // Check log file size and rotate if needed
     try {
-      require('fs').appendFileSync(debugLogPath, msg);
+      const stats = require('fs').statSync(debugLogPath);
+      if (stats.size > MAX_LOG_SIZE) {
+        // Rotate: rename old log and start fresh
+        const rotatedPath = debugLogPath.replace('.log', '.old.log');
+        try { require('fs').unlinkSync(rotatedPath); } catch (e) {}
+        require('fs').renameSync(debugLogPath, rotatedPath);
+      }
     } catch (e) {
-      // Ignore write errors
+      // File doesn't exist yet, that's fine
     }
+    
+    // Sanitize log message to avoid leaking sensitive paths in production
+    let sanitizedMsg = msg;
+    if (!isDev) {
+      // In production, replace full user paths with shortened versions
+      sanitizedMsg = msg.replace(/\/Users\/[^\/\s]+/g, '/Users/***');
+      sanitizedMsg = sanitizedMsg.replace(/C:\\Users\\[^\\s]+/gi, 'C:\\Users\\***');
+    }
+    
+    require('fs').appendFileSync(debugLogPath, sanitizedMsg);
+  } catch (e) {
+    // Ignore write errors
   }
 }
 
@@ -102,18 +147,98 @@ const SKIP_DIRS = [
 // Max file size for reading dependency files (25MB)
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
+// Security limits for folder scanning
+const MAX_FILES_SCANNED = 10000;
+const MAX_FOLDERS_SCANNED = 5000;
+
+// System directories that should never be scanned (security protection)
+const FORBIDDEN_PATHS = [
+  '/', '/bin', '/sbin', '/usr', '/etc', '/var', '/tmp', '/private',
+  '/System', '/Library', '/Applications', '/Users',
+  'C:\\', 'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)',
+  'C:\\Users', 'C:\\ProgramData'
+];
+
+// Check if a path is a forbidden system directory
+function isForbiddenPath(targetPath) {
+  const normalizedPath = path.normalize(targetPath);
+  // Check exact matches and parent directories
+  for (const forbidden of FORBIDDEN_PATHS) {
+    if (normalizedPath === forbidden || normalizedPath === path.normalize(forbidden)) {
+      return true;
+    }
+  }
+  // Allow subdirectories of /Users or C:\Users (user projects)
+  if (normalizedPath.startsWith('/Users/') || normalizedPath.match(/^[A-Z]:\\Users\\/i)) {
+    return false;
+  }
+  // Block root-level system paths
+  const parts = normalizedPath.split(path.sep).filter(Boolean);
+  if (parts.length <= 1 && FORBIDDEN_PATHS.some(f => normalizedPath.startsWith(f))) {
+    return true;
+  }
+  return false;
+}
+
+// Resolve symlinks and validate path safety
+async function validatePath(targetPath) {
+  try {
+    // Resolve the real path (follows symlinks)
+    const realPath = await fs.promises.realpath(targetPath);
+    
+    // Check if the resolved path is forbidden
+    if (isForbiddenPath(realPath)) {
+      return { valid: false, error: 'Cannot scan system directories' };
+    }
+    
+    // Verify it's actually a directory
+    const stats = await fs.promises.stat(realPath);
+    if (!stats.isDirectory()) {
+      return { valid: false, error: 'Selected path is not a directory' };
+    }
+    
+    return { valid: true, realPath };
+  } catch (err) {
+    return { valid: false, error: `Cannot access path: ${err.message}` };
+  }
+}
+
 // Scan projects folder recursively and build a nested tree structure
 async function scanProjectsFolder(rootPath, maxDepth = 5) {
+  // Track scan progress for limits
+  let filesScanned = 0;
+  let foldersScanned = 0;
+  let scanLimitReached = false;
   
   // Recursively scan a directory and return a tree node
   async function scanDir(dirPath, depth = 0) {
     if (depth > maxDepth) return null;
+    
+    // Check folder limit
+    foldersScanned++;
+    if (foldersScanned > MAX_FOLDERS_SCANNED) {
+      if (!scanLimitReached) {
+        console.warn('CVE Watch: Folder scan limit reached, stopping scan');
+        scanLimitReached = true;
+      }
+      return null;
+    }
     
     let entries;
     try {
       entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     } catch (err) {
       console.error('CVE Watch: Cannot read directory:', dirPath, err.message);
+      return null;
+    }
+    
+    // Check file limit
+    filesScanned += entries.length;
+    if (filesScanned > MAX_FILES_SCANNED) {
+      if (!scanLimitReached) {
+        console.warn('CVE Watch: File scan limit reached, stopping scan');
+        scanLimitReached = true;
+      }
       return null;
     }
     
@@ -1182,9 +1307,19 @@ ipcMain.handle('select-projects-folder', async () => {
   }
   
   const folderPath = result.filePaths[0];
-  store.set('projectsFolder', folderPath);
   
-  const scanResult = await scanProjectsFolder(folderPath);
+  // Validate the selected path (security check)
+  const validation = await validatePath(folderPath);
+  if (!validation.valid) {
+    console.error('CVE Watch: Invalid folder selection:', validation.error);
+    return { error: validation.error };
+  }
+  
+  // Use the resolved real path (symlinks followed)
+  const safePath = validation.realPath;
+  store.set('projectsFolder', safePath);
+  
+  const scanResult = await scanProjectsFolder(safePath);
   store.set('scannedProjects', scanResult);
   store.set('lastProjectsScan', Date.now());
   

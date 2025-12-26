@@ -10,8 +10,71 @@ const REQUEST_TIMEOUT = 30000; // 30 second timeout
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 const BATCH_SIZE = 5; // Fetch 5 products in parallel
 
+// Maximum lengths for string fields (security measure)
+const MAX_CVE_ID_LENGTH = 30;
+const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_URL_LENGTH = 2048;
+
 // Simple in-memory cache
 const cache = new Map();
+
+// Validate NVD API response structure
+function validateNVDResponse(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid API response: not an object');
+  }
+  
+  if (!Array.isArray(data.vulnerabilities)) {
+    // Could be empty response, which is valid
+    if (data.vulnerabilities === undefined) {
+      return { ...data, vulnerabilities: [] };
+    }
+    throw new Error('Invalid API response: vulnerabilities is not an array');
+  }
+  
+  // Validate each vulnerability entry has required structure
+  for (const vuln of data.vulnerabilities) {
+    if (!vuln.cve || typeof vuln.cve !== 'object') {
+      throw new Error('Invalid vulnerability entry: missing cve object');
+    }
+    if (!vuln.cve.id || typeof vuln.cve.id !== 'string') {
+      throw new Error('Invalid vulnerability entry: missing cve.id');
+    }
+    // Validate CVE ID format (CVE-YYYY-NNNNN)
+    if (!/^CVE-\d{4}-\d{4,}$/.test(vuln.cve.id)) {
+      throw new Error(`Invalid CVE ID format: ${vuln.cve.id}`);
+    }
+    if (vuln.cve.id.length > MAX_CVE_ID_LENGTH) {
+      throw new Error(`CVE ID too long: ${vuln.cve.id}`);
+    }
+  }
+  
+  return data;
+}
+
+// Sanitize a string field (truncate and remove control characters)
+function sanitizeString(str, maxLength) {
+  if (typeof str !== 'string') return '';
+  // Remove control characters except newlines and tabs
+  let sanitized = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // Truncate to max length
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength) + '...';
+  }
+  return sanitized;
+}
+
+// Sanitize URL
+function sanitizeUrl(url) {
+  if (typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.length > MAX_URL_LENGTH) return '';
+  // Only allow http/https URLs
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
+    return '';
+  }
+  return trimmed;
+}
 
 // Helper to delay between requests
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -69,10 +132,11 @@ function parseCVE(item) {
   const cve = item.cve;
   const cvssData = parseCVSSScore(cve);
   
-  // Get description (prefer English)
+  // Get description (prefer English) - sanitized
   const descriptions = cve.descriptions || [];
   const englishDesc = descriptions.find(d => d.lang === 'en');
-  const description = englishDesc?.value || descriptions[0]?.value || 'No description available';
+  const rawDescription = englishDesc?.value || descriptions[0]?.value || 'No description available';
+  const description = sanitizeString(rawDescription, MAX_DESCRIPTION_LENGTH);
   
   // Get affected products from configurations
   const configurations = cve.configurations || [];
@@ -81,24 +145,34 @@ function parseCVE(item) {
   configurations.forEach(config => {
     config.nodes?.forEach(node => {
       node.cpeMatch?.forEach(match => {
-        if (match.vulnerable) {
-          affectedProducts.push(match.criteria);
+        if (match.vulnerable && typeof match.criteria === 'string') {
+          // Limit CPE string length
+          affectedProducts.push(sanitizeString(match.criteria, 500));
         }
       });
     });
   });
   
+  // Sanitize references
+  const sanitizedRefs = (cve.references || [])
+    .slice(0, 5)
+    .map(ref => ({
+      ...ref,
+      url: sanitizeUrl(ref.url)
+    }))
+    .filter(ref => ref.url); // Remove invalid URLs
+  
   return {
-    id: cve.id,
+    id: cve.id, // Already validated in validateNVDResponse
     description,
     score: cvssData.score,
     severity: cvssData.severity,
     cvssVersion: cvssData.version,
     published: cve.published,
     lastModified: cve.lastModified,
-    affectedProducts,
-    references: (cve.references || []).slice(0, 5), // Limit references
-    url: `https://nvd.nist.gov/vuln/detail/${cve.id}`
+    affectedProducts: affectedProducts.slice(0, 50), // Limit number of products
+    references: sanitizedRefs,
+    url: `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cve.id)}`
   };
 }
 
@@ -144,7 +218,10 @@ async function fetchCVEsForKeyword(keyword, resultsPerProduct = 10, signal = nul
       throw new Error(`NVD API error: ${response.status}`);
     }
     
-    const data = await response.json();
+    const rawData = await response.json();
+    
+    // Validate response structure before processing
+    const data = validateNVDResponse(rawData);
     const cves = (data.vulnerabilities || []).map(parseCVE);
     
     // Cache the result

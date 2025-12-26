@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
+
+// Sanitize text content to prevent XSS
+function sanitizeText(text) {
+  if (typeof text !== 'string') return '';
+  // DOMPurify with text-only config (no HTML allowed)
+  return DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+}
 
 function CVEItem({ cve, compact = false }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Memoize sanitized description
+  const safeDescription = useMemo(() => sanitizeText(cve.description), [cve.description]);
 
   const severityConfig = {
     CRITICAL: { bg: 'bg-severity-critical/20', text: 'text-severity-critical', icon: 'text-severity-critical' },
@@ -66,7 +77,7 @@ function CVEItem({ cve, compact = false }) {
               </span>
             </div>
             <p className="text-[11px] text-lp-text-secondary line-clamp-1 leading-relaxed mt-0.5">
-              {cve.description}
+              {safeDescription}
             </p>
           </div>
 
@@ -93,7 +104,7 @@ function CVEItem({ cve, compact = false }) {
             >
               <div className="px-3 pb-3 ml-4 border-l-2 border-lp-border">
                 <p className="text-xs text-lp-text-secondary leading-relaxed mb-2 selectable">
-                  {cve.description}
+                  {safeDescription}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -153,7 +164,7 @@ function CVEItem({ cve, compact = false }) {
             )}
           </div>
           <p className="text-xs text-lp-text-secondary line-clamp-2 leading-relaxed">
-            {cve.description}
+            {safeDescription}
           </p>
         </div>
 
@@ -204,7 +215,7 @@ function CVEItem({ cve, compact = false }) {
 
               {/* Full Description */}
               <p className="text-xs text-lp-text-secondary leading-relaxed mb-3 selectable">
-                {cve.description}
+                {safeDescription}
               </p>
 
               {/* Actions */}

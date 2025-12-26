@@ -3,6 +3,9 @@ import { motion } from 'framer-motion';
 import { usePreferences } from '../contexts/PreferencesContext';
 
 function Settings({ onClose }) {
+  const version = process.env.npm_package_version || '1.0.1';
+  console.log('Version:', version);
+  
   const { preferences, updatePreference } = usePreferences();
 
   const pollIntervals = [
@@ -119,7 +122,7 @@ function Settings({ onClose }) {
             </div>
             <div>
               <div className="text-sm font-semibold text-lp-text">CVE Watch</div>
-              <div className="text-xs text-lp-text-muted">Version 1.0.0</div>
+              <div className="text-xs text-lp-text-muted">Version {version}</div>
             </div>
           </div>
           <p className="text-xs text-lp-text-secondary leading-relaxed">
