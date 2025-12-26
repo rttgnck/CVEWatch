@@ -90,7 +90,7 @@ CVEWatch/
 
 ## License
 
-MIT
+This project is not licensed for use. All rights reserved. No usage, copying, modification, or distribution permitted without explicit written permission from the author.
 
 ## Acknowledgments
 

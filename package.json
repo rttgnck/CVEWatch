@@ -1,7 +1,7 @@
 {
   "name": "cve-watch",
   "version": "1.0.0",
-  "description": "A beautiful macOS menu bar app for tracking CVEs on products you care about",
+  "description": "A macOS menu bar app for tracking CVEs on products you care about",
   "main": "main-process/main.js",
   "engines": {
     "node": ">=18"
@@ -17,7 +17,6 @@
     "preview:electron": "npm run build:vite && NODE_ENV=production electron ."
   },
   "author": "intek",
-  "license": "MIT",
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
