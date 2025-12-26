@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Custom Scrollbar - LessPorts style */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* App Container */
+.app-root {
+  background: #0d0b14;
+  border-radius: 12px;
+  border: 1px solid #2a2639;
+  overflow: hidden;
+}
+
+/* Card Component */
+.lp-card {
+  @apply bg-lp-surface border border-lp-border rounded-xl transition-all duration-150;
+}
+
+.lp-card:hover {
+  @apply bg-lp-hover border-lp-border-light;
+}
+
+.lp-card-elevated {
+  @apply bg-lp-elevated border border-lp-border rounded-xl;
+}
+
+/* Input */
+.lp-input {
+  @apply w-full bg-lp-surface border border-lp-border rounded-xl px-8 py-3;
+  @apply text-sm text-lp-text placeholder-lp-text-muted;
+  @apply focus:outline-none focus:border-lp-orange transition-colors;
+}
+
+/* Buttons */
+.lp-btn {
+  @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+}
+
+.lp-btn-primary {
+  @apply lp-btn bg-lp-orange text-white hover:bg-lp-orange-hover;
+}
+
+.lp-btn-secondary {
+  @apply lp-btn bg-lp-surface border border-lp-border text-lp-text hover:bg-lp-hover hover:border-lp-border-light;
+}
+
+.lp-btn-ghost {
+  @apply lp-btn bg-transparent text-lp-text-secondary hover:bg-lp-hover hover:text-lp-text;
+}
+
+/* Pill Button (like tabs) */
+.lp-pill {
+  @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors;
+}
+
+.lp-pill-active {
+  @apply lp-pill bg-lp-orange text-white;
+}
+
+.lp-pill-inactive {
+  @apply lp-pill bg-transparent text-lp-text-secondary hover:text-lp-text;
+}
+
+/* Category Header */
+.lp-category {
+  @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-wider mb-2;
+}
+
+.lp-category-dot {
+  @apply w-3 h-3 rounded;
+}
+
+/* Status Dot */
+.lp-status {
+  @apply w-2 h-2 rounded-full;
+}
+
+.lp-status-active {
+  @apply lp-status bg-lp-green;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+}
+
+.lp-status-inactive {
+  @apply lp-status bg-lp-text-muted;
+}
+
+/* Severity Badges */
+.severity-badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase;
+}
+
+.severity-critical {
+  @apply bg-severity-critical/20 text-severity-critical;
+}
+
+.severity-high {
+  @apply bg-severity-high/20 text-severity-high;
+}
+
+.severity-medium {
+  @apply bg-severity-medium/20 text-severity-medium;
+}
+
+.severity-low {
+  @apply bg-severity-low/20 text-severity-low;
+}
+
+.severity-none {
+  @apply bg-lp-surface text-lp-text-muted;
+}
+
+/* Severity Stats (compact inline indicators) */
+.severity-stat {
+  @apply text-[10px] font-medium px-1.5 py-0.5 rounded;
+}
+
+.severity-stat-critical {
+  @apply severity-stat bg-severity-critical/15 text-severity-critical;
+}
+
+.severity-stat-high {
+  @apply severity-stat bg-severity-high/15 text-severity-high;
+}
+
+.severity-stat-medium {
+  @apply severity-stat bg-severity-medium/15 text-severity-medium;
+}
+
+.severity-stat-low {
+  @apply severity-stat bg-severity-low/15 text-severity-low;
+}
+
+/* Icon Box */
+.lp-icon-box {
+  @apply flex items-center justify-center rounded-lg;
+}
+
+/* Divider */
+.lp-divider {
+  @apply border-t border-lp-border;
+}
+
+/* Skeleton Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  @apply rounded;
+  background: linear-gradient(90deg, #1c1928 25%, #252233 50%, #1c1928 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
