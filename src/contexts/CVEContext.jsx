@@ -4,6 +4,9 @@ import { fetchCVEsForProducts } from '../services/nvdService';
 
 const CVEContext = createContext();
 
+// Minimum time between manual refreshes (10 seconds)
+const MIN_REFRESH_INTERVAL = 10000;
+
 export function CVEProvider({ children }) {
   const { preferences } = usePreferences();
   const [cves, setCVEs] = useState([]);
@@ -13,8 +16,17 @@ export function CVEProvider({ children }) {
   const seenCVEIds = useRef(new Set());
   const isFirstLoad = useRef(true);
   const abortControllerRef = useRef(null);
+  const lastFetchTime = useRef(0);
 
-  const fetchCVEs = useCallback(async () => {
+  const fetchCVEs = useCallback(async (bypassRateLimit = false) => {
+    // Rate limiting: prevent rapid manual refreshes
+    const now = Date.now();
+    if (!bypassRateLimit && !isFirstLoad.current && now - lastFetchTime.current < MIN_REFRESH_INTERVAL) {
+      console.log('Refresh rate limited, please wait');
+      return;
+    }
+    lastFetchTime.current = now;
+    
     // Cancel any pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -93,10 +105,10 @@ export function CVEProvider({ children }) {
     fetchCVEs();
   }, [preferences.products]);
 
-  // Set up polling interval
+  // Set up polling interval (bypasses rate limit since it's automatic)
   useEffect(() => {
     const intervalMs = (preferences.pollInterval || 30) * 60 * 1000;
-    const interval = setInterval(fetchCVEs, intervalMs);
+    const interval = setInterval(() => fetchCVEs(true), intervalMs);
     return () => clearInterval(interval);
   }, [preferences.pollInterval, fetchCVEs]);
 

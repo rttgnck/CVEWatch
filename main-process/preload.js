@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Notifications
   showNotification: (title, body, url) => ipcRenderer.send('show-notification', { title, body, url }),
   
+  // Open external URL securely (validated in main process)
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  
   // Refresh from tray
   onRefreshCVEs: (callback) => {
     const handler = () => callback();

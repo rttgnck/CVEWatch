@@ -36,14 +36,27 @@ function CVEItem({ cve, compact = false }) {
     return date.toLocaleDateString();
   };
 
-  const openInBrowser = (url) => {
+  const openInBrowser = async (url) => {
+    // Validate URL before sending to main process
+    if (!url || typeof url !== 'string' || url.length > 2048) {
+      console.warn('Invalid URL:', url);
+      return;
+    }
+    
     try {
       const parsed = new URL(url);
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         console.warn('Blocked non-http(s) URL:', url);
         return;
       }
-      window.open(url, '_blank');
+      
+      // Use Electron's shell.openExternal via IPC (validated in main process)
+      if (window.electronAPI?.openExternal) {
+        await window.electronAPI.openExternal(url);
+      } else {
+        // Fallback for browser environment (dev)
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     } catch {
       console.warn('Invalid URL:', url);
     }

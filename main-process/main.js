@@ -74,6 +74,8 @@ function warnLog(...args) {
   writeToLogFile(msg);
 }
 
+const MAX_LOG_LINE_LENGTH = 10000;
+
 function writeToLogFile(msg) {
   if (!debugLogPath) return;
   try {
@@ -90,12 +92,23 @@ function writeToLogFile(msg) {
       // File doesn't exist yet, that's fine
     }
     
-    // Sanitize log message to avoid leaking sensitive paths in production
     let sanitizedMsg = msg;
+    
+    // Remove ANSI escape codes (prevent terminal manipulation)
+    sanitizedMsg = sanitizedMsg.replace(/\x1b\[[0-9;]*m/g, '');
+    
+    // Remove other control characters except newline and tab
+    sanitizedMsg = sanitizedMsg.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    
+    // Sanitize user paths in production
     if (!isDev) {
-      // In production, replace full user paths with shortened versions
-      sanitizedMsg = msg.replace(/\/Users\/[^\/\s]+/g, '/Users/***');
+      sanitizedMsg = sanitizedMsg.replace(/\/Users\/[^\/\s]+/g, '/Users/***');
       sanitizedMsg = sanitizedMsg.replace(/C:\\Users\\[^\\s]+/gi, 'C:\\Users\\***');
+    }
+    
+    // Truncate overly long log lines
+    if (sanitizedMsg.length > MAX_LOG_LINE_LENGTH) {
+      sanitizedMsg = sanitizedMsg.substring(0, MAX_LOG_LINE_LENGTH) + '\n[TRUNCATED]\n';
     }
     
     require('fs').appendFileSync(debugLogPath, sanitizedMsg);
@@ -205,6 +218,7 @@ async function validatePath(targetPath) {
 
 // Scan projects folder recursively and build a nested tree structure
 async function scanProjectsFolder(rootPath, maxDepth = 5) {
+  try {
   // Track scan progress for limits
   let filesScanned = 0;
   let foldersScanned = 0;
@@ -329,6 +343,18 @@ async function scanProjectsFolder(rootPath, maxDepth = 5) {
     totalProjects: tree.totalProjects,
     totalPackages: tree.totalPackages
   };
+  } catch (err) {
+    // Error boundary: catch any uncaught errors during scanning
+    console.error('CVE Watch: Scan failed with error:', err.message);
+    return {
+      rootName: path.basename(rootPath),
+      rootPath: rootPath,
+      tree: null,
+      totalProjects: 0,
+      totalPackages: 0,
+      error: `Scan failed: ${err.message}`
+    };
+  }
 }
 
 // Parse dependency file and extract packages
@@ -1210,12 +1236,81 @@ ipcMain.handle('get-preferences', () => {
 
 // Allowed preference keys for security
 const ALLOWED_PREFERENCE_KEYS = ['products', 'pollInterval', 'notifications', 'theme', 'openAtLogin'];
+const ALLOWED_THEMES = ['system', 'light', 'dark'];
+const MAX_PRODUCTS = 100;
+const MIN_POLL_INTERVAL = 15; // minutes
+const MAX_POLL_INTERVAL = 1440; // 24 hours
+
+// Validate preference value based on key
+function validatePreferenceValue(key, value) {
+  switch (key) {
+    case 'products':
+      if (!Array.isArray(value)) {
+        throw new Error('Products must be an array');
+      }
+      if (value.length > MAX_PRODUCTS) {
+        throw new Error(`Too many products (max ${MAX_PRODUCTS})`);
+      }
+      // Validate each product object
+      for (const product of value) {
+        if (typeof product !== 'object' || product === null) {
+          throw new Error('Invalid product format');
+        }
+        if (typeof product.name !== 'string' || product.name.length > 100) {
+          throw new Error('Invalid product name');
+        }
+        if (product.keyword && (typeof product.keyword !== 'string' || product.keyword.length > 100)) {
+          throw new Error('Invalid product keyword');
+        }
+      }
+      break;
+      
+    case 'pollInterval':
+      if (typeof value !== 'number' || !Number.isInteger(value)) {
+        throw new Error('Poll interval must be an integer');
+      }
+      if (value < MIN_POLL_INTERVAL || value > MAX_POLL_INTERVAL) {
+        throw new Error(`Poll interval must be between ${MIN_POLL_INTERVAL} and ${MAX_POLL_INTERVAL} minutes`);
+      }
+      break;
+      
+    case 'notifications':
+      if (typeof value !== 'boolean') {
+        throw new Error('Notifications must be a boolean');
+      }
+      break;
+      
+    case 'theme':
+      if (!ALLOWED_THEMES.includes(value)) {
+        throw new Error('Invalid theme value');
+      }
+      break;
+      
+    case 'openAtLogin':
+      if (typeof value !== 'boolean') {
+        throw new Error('Open at login must be a boolean');
+      }
+      break;
+      
+    default:
+      throw new Error('Unknown preference key');
+  }
+  return true;
+}
 
 ipcMain.handle('set-preference', (event, key, value) => {
   // Validate key to prevent arbitrary store writes
   if (!ALLOWED_PREFERENCE_KEYS.includes(key)) {
     console.error('CVE Watch: Invalid preference key:', key);
     throw new Error('Invalid preference key');
+  }
+  
+  // Validate value based on key type
+  try {
+    validatePreferenceValue(key, value);
+  } catch (err) {
+    console.error('CVE Watch: Invalid preference value:', err.message);
+    throw err;
   }
   
   store.set(key, value);
@@ -1263,7 +1358,12 @@ ipcMain.on('quit-app', () => {
 });
 
 // Validate URL before opening externally
+const MAX_URL_LENGTH = 2048;
+
 function isValidExternalUrl(url) {
+  if (!url || typeof url !== 'string' || url.length > MAX_URL_LENGTH) {
+    return false;
+  }
   try {
     const parsed = new URL(url);
     return ['http:', 'https:'].includes(parsed.protocol);
@@ -1271,6 +1371,21 @@ function isValidExternalUrl(url) {
     return false;
   }
 }
+
+// IPC handler for opening URLs externally (secure)
+ipcMain.handle('open-external', async (event, url) => {
+  if (!isValidExternalUrl(url)) {
+    console.warn('CVE Watch: Blocked invalid external URL:', url?.substring(0, 50));
+    return false;
+  }
+  try {
+    await require('electron').shell.openExternal(url);
+    return true;
+  } catch (err) {
+    console.error('CVE Watch: Failed to open external URL:', err.message);
+    return false;
+  }
+});
 
 ipcMain.on('show-notification', (event, { title, body, url }) => {
   if (store.get('notifications') === false) return;

@@ -178,6 +178,11 @@ function parseCVE(item) {
 
 // Fetch CVEs for a single product keyword with timeout
 async function fetchCVEsForKeyword(keyword, resultsPerProduct = 10, signal = null) {
+  // Security: Verify API base URL hasn't been tampered with
+  if (!NVD_API_BASE.startsWith('https://services.nvd.nist.gov/')) {
+    throw new Error('Invalid API base URL - possible tampering detected');
+  }
+  
   // Check cache first
   const cacheKey = `${keyword}-${resultsPerProduct}`;
   const cached = getCached(cacheKey);
