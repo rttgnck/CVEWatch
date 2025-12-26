@@ -1,11 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { usePreferences } from './PreferencesContext';
 import { fetchCVEsForProducts } from '../services/nvdService';
+import DOMPurify from 'dompurify';
 
 const CVEContext = createContext();
 
 // Minimum time between manual refreshes (10 seconds)
 const MIN_REFRESH_INTERVAL = 10000;
+
+// Sanitize text for notifications (strip all HTML, then truncate)
+function sanitizeForNotification(text, maxLength = 100) {
+  if (typeof text !== 'string') return '';
+  // Strip ALL HTML tags and attributes
+  const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  // Now truncate the clean text
+  if (sanitized.length > maxLength) {
+    return sanitized.substring(0, maxLength) + '...';
+  }
+  return sanitized;
+}
 
 export function CVEProvider({ children }) {
   const { preferences } = usePreferences();
@@ -64,7 +77,7 @@ export function CVEProvider({ children }) {
         criticalCVEs.slice(0, 3).forEach(cve => {
           window.electronAPI.showNotification(
             `${cve.severity} CVE: ${cve.id}`,
-            cve.description.substring(0, 100) + '...',
+            sanitizeForNotification(cve.description, 100),
             cve.url
           );
         });

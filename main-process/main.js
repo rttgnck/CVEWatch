@@ -46,12 +46,14 @@ const isMac = process.platform === 'darwin';
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
 // Log levels for production vs development
+// In production: only log errors to console, NO file logging (security)
 const LOG_LEVELS = { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 };
-const CURRENT_LOG_LEVEL = isDev ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN;
-const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB max log file size
+const CURRENT_LOG_LEVEL = isDev ? LOG_LEVELS.DEBUG : LOG_LEVELS.ERROR;
+const MAX_LOG_SIZE = 2 * 1024 * 1024; // 2MB max log file size (reduced)
 
-// Debug logging function - writes to file after app is ready
+// Debug logging function - writes to file ONLY in development
 let debugLogPath = null;
+
 function debugLog(...args) {
   // Only log DEBUG level in development
   if (CURRENT_LOG_LEVEL < LOG_LEVELS.DEBUG) return;
@@ -62,6 +64,14 @@ function debugLog(...args) {
 }
 
 function errorLog(...args) {
+  // In production, only log sanitized error message (no stack traces)
+  if (!isDev) {
+    const sanitizedArgs = args.map(arg => 
+      arg instanceof Error ? arg.message : String(arg)
+    );
+    console.error('CVE Watch Error:', sanitizedArgs[0] || 'Unknown error');
+    return;
+  }
   const msg = `[${new Date().toISOString()}] [ERROR] ${args.join(' ')}\n`;
   console.error(...args);
   writeToLogFile(msg);
@@ -74,10 +84,12 @@ function warnLog(...args) {
   writeToLogFile(msg);
 }
 
-const MAX_LOG_LINE_LENGTH = 10000;
+const MAX_LOG_LINE_LENGTH = 5000;
 
 function writeToLogFile(msg) {
-  if (!debugLogPath) return;
+  // SECURITY: No file logging in production
+  if (!isDev || !debugLogPath) return;
+  
   try {
     // Check log file size and rotate if needed
     try {
@@ -99,12 +111,6 @@ function writeToLogFile(msg) {
     
     // Remove other control characters except newline and tab
     sanitizedMsg = sanitizedMsg.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-    
-    // Sanitize user paths in production
-    if (!isDev) {
-      sanitizedMsg = sanitizedMsg.replace(/\/Users\/[^\/\s]+/g, '/Users/***');
-      sanitizedMsg = sanitizedMsg.replace(/C:\\Users\\[^\\s]+/gi, 'C:\\Users\\***');
-    }
     
     // Truncate overly long log lines
     if (sanitizedMsg.length > MAX_LOG_LINE_LENGTH) {
@@ -1223,6 +1229,28 @@ app.whenReady().then(() => {
   console.log('CVE Watch: Initialization complete');
 });
 
+// IPC Rate Limiting (prevents renderer process from flooding main process)
+const ipcRateLimiter = new Map();
+const IPC_RATE_LIMITS = {
+  'select-projects-folder': 1000,  // 1 second (opens dialog)
+  'rescan-projects': 2000,          // 2 seconds (heavy file system op)
+  'set-preference': 100,            // 100ms (store write)
+  'open-external': 500,             // 500ms (opens browser)
+  'default': 50                     // 50ms default
+};
+
+function checkIpcRateLimit(channel) {
+  const now = Date.now();
+  const lastCall = ipcRateLimiter.get(channel) || 0;
+  const limit = IPC_RATE_LIMITS[channel] || IPC_RATE_LIMITS['default'];
+  
+  if (now - lastCall < limit) {
+    throw new Error('Rate limit exceeded');
+  }
+  ipcRateLimiter.set(channel, now);
+  return true;
+}
+
 // IPC Handlers
 ipcMain.handle('get-preferences', () => {
   return {
@@ -1299,6 +1327,9 @@ function validatePreferenceValue(key, value) {
 }
 
 ipcMain.handle('set-preference', (event, key, value) => {
+  // Rate limit to prevent flooding
+  checkIpcRateLimit('set-preference');
+  
   // Validate key to prevent arbitrary store writes
   if (!ALLOWED_PREFERENCE_KEYS.includes(key)) {
     console.error('CVE Watch: Invalid preference key:', key);
@@ -1374,6 +1405,13 @@ function isValidExternalUrl(url) {
 
 // IPC handler for opening URLs externally (secure)
 ipcMain.handle('open-external', async (event, url) => {
+  // Rate limit to prevent link spam
+  try {
+    checkIpcRateLimit('open-external');
+  } catch {
+    return false;
+  }
+  
   if (!isValidExternalUrl(url)) {
     console.warn('CVE Watch: Blocked invalid external URL:', url?.substring(0, 50));
     return false;
@@ -1411,6 +1449,9 @@ ipcMain.on('show-notification', (event, { title, body, url }) => {
 
 // Projects Folder IPC Handlers
 ipcMain.handle('select-projects-folder', async () => {
+  // Rate limit to prevent dialog spam
+  checkIpcRateLimit('select-projects-folder');
+  
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
     title: 'Select Projects Folder',
@@ -1458,6 +1499,9 @@ ipcMain.handle('get-projects-folder', () => {
 });
 
 ipcMain.handle('rescan-projects', async () => {
+  // Rate limit to prevent heavy file system operations
+  checkIpcRateLimit('rescan-projects');
+  
   const folderPath = store.get('projectsFolder');
   if (!folderPath) return null;
   

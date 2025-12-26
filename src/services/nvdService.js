@@ -15,8 +15,9 @@ const MAX_CVE_ID_LENGTH = 30;
 const MAX_DESCRIPTION_LENGTH = 5000;
 const MAX_URL_LENGTH = 2048;
 
-// Simple in-memory cache
+// Simple in-memory cache with size limit to prevent memory exhaustion
 const cache = new Map();
+const MAX_CACHE_SIZE = 500; // Max cache entries
 
 // Validate NVD API response structure
 function validateNVDResponse(data) {
@@ -88,8 +89,17 @@ function getCached(key) {
   return null;
 }
 
-// Set cache with timestamp
+// Set cache with timestamp (enforces max size to prevent memory exhaustion)
 function setCache(key, data) {
+  // Enforce cache size limit
+  if (cache.size >= MAX_CACHE_SIZE) {
+    // Remove oldest entries (first 10% of cache)
+    const entriesToRemove = Math.max(1, Math.floor(MAX_CACHE_SIZE * 0.1));
+    const keys = Array.from(cache.keys());
+    for (let i = 0; i < entriesToRemove && i < keys.length; i++) {
+      cache.delete(keys[i]);
+    }
+  }
   cache.set(key, { data, timestamp: Date.now() });
 }
 
