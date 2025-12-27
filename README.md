@@ -88,6 +88,27 @@ CVEWatch/
 └── package.json
 ```
 
+## Security
+
+CVE Watch implements several security measures:
+
+- **Content Security Policy (CSP)** — Strict CSP headers prevent XSS attacks
+- **Context Isolation** — Renderer process is sandboxed from Node.js APIs
+- **Input Validation** — All user inputs and API responses are validated
+- **Rate Limiting** — IPC calls are rate-limited to prevent abuse
+- **HTTPS Only** — All external connections use HTTPS
+- **Path Validation** — File system access is restricted to user directories
+
+### Security Notes for Developers
+
+- **Never share debug logs publicly** — Debug logs (only generated in development mode) may contain file paths and system information
+- **Run `npm audit` regularly** — Check for dependency vulnerabilities before releases
+- **Test security warnings** — Run with `app.commandLine.appendSwitch('enable-logging')` to see Electron security warnings
+
+### Reporting Vulnerabilities
+
+If you discover a security vulnerability, please report it privately to the author rather than opening a public issue.
+
 ## License
 
 This project is not licensed for use. All rights reserved. No usage, copying, modification, or distribution permitted without explicit written permission from the author.

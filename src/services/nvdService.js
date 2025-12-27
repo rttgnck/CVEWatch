@@ -65,13 +65,13 @@ function sanitizeString(str, maxLength) {
   return sanitized;
 }
 
-// Sanitize URL
+// Sanitize URL - HTTPS only for security
 function sanitizeUrl(url) {
   if (typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (trimmed.length > MAX_URL_LENGTH) return '';
-  // Only allow http/https URLs
-  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
+  // Only allow HTTPS URLs (security: no unencrypted connections)
+  if (!trimmed.startsWith('https://')) {
     return '';
   }
   return trimmed;

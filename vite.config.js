@@ -12,6 +12,9 @@ function removeCrossOrigin() {
   };
 }
 
+// Check if we're building for production
+const isProduction = process.env.NODE_ENV === 'production';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -22,7 +25,8 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
-    sourcemap: true,
+    // Disable sourcemaps in production to prevent source code exposure
+    sourcemap: isProduction ? false : true,
     // Disable module preload polyfill for Electron compatibility
     modulePreload: {
       polyfill: false

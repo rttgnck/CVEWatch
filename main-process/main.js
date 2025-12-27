@@ -181,6 +181,12 @@ const FORBIDDEN_PATHS = [
 // Check if a path is a forbidden system directory
 function isForbiddenPath(targetPath) {
   const normalizedPath = path.normalize(targetPath);
+  
+  // Block UNC network paths (\\server\share)
+  if (normalizedPath.startsWith('\\\\') || targetPath.startsWith('\\\\')) {
+    return true;
+  }
+  
   // Check exact matches and parent directories
   for (const forbidden of FORBIDDEN_PATHS) {
     if (normalizedPath === forbidden || normalizedPath === path.normalize(forbidden)) {
@@ -995,6 +1001,10 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,                    // Enforce same-origin policy
+      allowRunningInsecureContent: false,   // Block mixed content
+      experimentalFeatures: false,          // Disable experimental features
       preload: path.join(__dirname, 'preload.js')
     }
   };
@@ -1005,9 +1015,6 @@ function createWindow() {
     windowConfig.visualEffectState = 'active';
     windowConfig.backgroundColor = '#00000000';
   }
-
-  // Add sandbox mode for security
-  windowConfig.webPreferences.sandbox = true;
 
   mainWindow = new BrowserWindow(windowConfig);
 
