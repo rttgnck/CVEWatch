@@ -5,8 +5,12 @@ import DOMPurify from 'dompurify';
 // Sanitize text content to prevent XSS
 function sanitizeText(text) {
   if (typeof text !== 'string') return '';
-  // DOMPurify with text-only config (no HTML allowed)
-  return DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  // DOMPurify with strict text-only config (no HTML allowed)
+  return DOMPurify.sanitize(text, { 
+    ALLOWED_TAGS: [], 
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: false  // Extra safety: don't keep content of removed tags
+  });
 }
 
 function CVEItem({ cve, compact = false }) {

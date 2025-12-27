@@ -18,6 +18,7 @@
   },
   "author": "intek",
   "devDependencies": {
+    "@electron/fuses": "^2.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
@@ -44,13 +45,10 @@
       "target": [
         "dmg"
       ],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "LSUIElement": true,
-        "LSBackgroundOnly": false
+        "LSBackgroundOnly": false,
+        "NSRequiresAquaSystemAppearance": false
       }
     },
     "dmg": {

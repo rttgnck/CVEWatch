@@ -208,6 +208,11 @@ function isForbiddenPath(targetPath) {
 // Resolve symlinks and validate path safety
 async function validatePath(targetPath) {
   try {
+    // Defense-in-depth: Check for path traversal patterns before resolving
+    if (targetPath.includes('..') || targetPath.includes('%2e%2e')) {
+      return { valid: false, error: 'Path traversal not allowed' };
+    }
+    
     // Resolve the real path (follows symlinks)
     const realPath = await fs.promises.realpath(targetPath);
     
@@ -369,6 +374,14 @@ async function scanProjectsFolder(rootPath, maxDepth = 5) {
   }
 }
 
+// Max line length for regex parsing (prevents ReDoS attacks)
+const MAX_LINE_LENGTH = 2000;
+
+// Helper to safely split and filter lines (ReDoS protection)
+function safeGetLines(content) {
+  return content.split('\n').filter(line => line.length <= MAX_LINE_LENGTH);
+}
+
 // Parse dependency file and extract packages
 async function parseDependencyFile(filePath, fileName) {
   const dependencies = [];
@@ -382,6 +395,15 @@ async function parseDependencyFile(filePath, fileName) {
     }
     
     const content = await fs.promises.readFile(filePath, 'utf-8');
+    
+    // Additional JSON size limit (10MB for JSON parsing)
+    const MAX_JSON_SIZE = 10 * 1024 * 1024;
+    if (['package.json', 'package-lock.json', 'Pipfile.lock', 'composer.json'].includes(fileName)) {
+      if (content.length > MAX_JSON_SIZE) {
+        console.warn('CVE Watch: JSON file too large:', filePath);
+        return dependencies;
+      }
+    }
     
     switch (fileName) {
       case 'package.json': {
@@ -462,7 +484,8 @@ async function parseDependencyFile(filePath, fileName) {
       }
       
       case 'requirements.txt': {
-        const lines = content.split('\n');
+        // Use safeGetLines to prevent ReDoS attacks
+        const lines = safeGetLines(content);
         for (const line of lines) {
           const trimmed = line.trim();
           if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('-')) {
@@ -1175,21 +1198,37 @@ function createContextMenu() {
   ]);
 }
 
+// Sanitize paths for logging (hide full user paths in dev mode too)
+function sanitizePathForLog(p) {
+  if (typeof p !== 'string') return p;
+  const os = require('os');
+  return p.replace(os.homedir(), '~');
+}
+
+// Certificate error handler for NVD API (security)
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  // Only allow NVD API with valid certificates - reject all certificate errors
+  console.error('CVE Watch: Certificate error for URL:', url, 'Error:', error);
+  callback(false); // Reject invalid certificates
+});
+
 // App ready
 app.whenReady().then(() => {
-  // Initialize debug log path now that app is ready
-  debugLogPath = path.join(app.getPath('userData'), 'debug.log');
-  // Clear old log file
-  try { fs.writeFileSync(debugLogPath, ''); } catch (e) {}
+  // Initialize debug log path now that app is ready (only in dev mode)
+  if (isDev) {
+    debugLogPath = path.join(app.getPath('userData'), 'debug.log');
+    // Clear old log file
+    try { fs.writeFileSync(debugLogPath, ''); } catch (e) {}
+  }
   
   debugLog('=== CVE Watch Starting ===');
   debugLog('Platform:', process.platform);
   debugLog('Is packaged:', app.isPackaged);
   debugLog('isDev:', isDev);
   debugLog('NODE_ENV:', process.env.NODE_ENV);
-  debugLog('App path:', app.getAppPath());
-  debugLog('User data path:', app.getPath('userData'));
-  debugLog('Debug log path:', debugLogPath);
+  debugLog('App path:', sanitizePathForLog(app.getAppPath()));
+  debugLog('User data path:', sanitizePathForLog(app.getPath('userData')));
+  if (debugLogPath) debugLog('Debug log path:', sanitizePathForLog(debugLogPath));
   
   // Hide dock icon FIRST (before creating tray)
   if (isMac && app.dock) {
@@ -1246,8 +1285,13 @@ const IPC_RATE_LIMITS = {
   'default': 50                     // 50ms default
 };
 
+// Get monotonic time in milliseconds (can't be manipulated by clock changes)
+function getMonotonicTime() {
+  return Number(process.hrtime.bigint() / 1000000n);
+}
+
 function checkIpcRateLimit(channel) {
-  const now = Date.now();
+  const now = getMonotonicTime();
   const lastCall = ipcRateLimiter.get(channel) || 0;
   const limit = IPC_RATE_LIMITS[channel] || IPC_RATE_LIMITS['default'];
   

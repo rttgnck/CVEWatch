@@ -11,8 +11,12 @@ const MIN_REFRESH_INTERVAL = 10000;
 // Sanitize text for notifications (strip all HTML, then truncate)
 function sanitizeForNotification(text, maxLength = 100) {
   if (typeof text !== 'string') return '';
-  // Strip ALL HTML tags and attributes
-  const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  // Strip ALL HTML tags and attributes with strict config
+  const sanitized = DOMPurify.sanitize(text, { 
+    ALLOWED_TAGS: [], 
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: false  // Extra safety
+  });
   // Now truncate the clean text
   if (sanitized.length > maxLength) {
     return sanitized.substring(0, maxLength) + '...';
