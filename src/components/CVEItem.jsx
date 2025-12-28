@@ -49,8 +49,9 @@ function CVEItem({ cve, compact = false }) {
     
     try {
       const parsed = new URL(url);
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        console.warn('Blocked non-http(s) URL:', url);
+      // Security: Only allow HTTPS URLs (no unencrypted connections)
+      if (parsed.protocol !== 'https:') {
+        console.warn('Only HTTPS URLs allowed:', url);
         return;
       }
       

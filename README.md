@@ -95,14 +95,20 @@ CVE Watch implements several security measures:
 - **Content Security Policy (CSP)** — Strict CSP headers prevent XSS attacks
 - **Context Isolation** — Renderer process is sandboxed from Node.js APIs
 - **Input Validation** — All user inputs and API responses are validated
+- **DOMPurify Sanitization** — All external content is sanitized before rendering
 - **Rate Limiting** — IPC calls are rate-limited to prevent abuse
 - **HTTPS Only** — All external connections use HTTPS
 - **Path Validation** — File system access is restricted to user directories
+- **Symlink Protection** — Symlink chains are limited to prevent escape attacks
+
+### Known Limitations
+
+- **CSP `unsafe-inline` for styles** — Required for Tailwind CSS. XSS is mitigated by DOMPurify sanitization of all external content.
 
 ### Security Notes for Developers
 
 - **Never share debug logs publicly** — Debug logs (only generated in development mode) may contain file paths and system information
-- **Run `npm audit` regularly** — Check for dependency vulnerabilities before releases
+- **Run `npm audit` regularly** — Check for dependency vulnerabilities before releases (use `npm run audit`)
 - **Test security warnings** — Run with `app.commandLine.appendSwitch('enable-logging')` to see Electron security warnings
 
 ### Reporting Vulnerabilities

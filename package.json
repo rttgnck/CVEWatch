@@ -14,7 +14,11 @@
     "build:vite": "vite build",
     "build:icons": "node scripts/generate-app-icons.js",
     "preview": "vite preview",
-    "preview:electron": "npm run build:vite && NODE_ENV=production electron ."
+    "preview:electron": "npm run build:vite && NODE_ENV=production electron .",
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "predev": "npm audit --audit-level=high || true",
+    "prebuild": "npm audit --audit-level=high || true"
   },
   "author": "intek",
   "devDependencies": {

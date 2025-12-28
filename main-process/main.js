@@ -205,15 +205,33 @@ function isForbiddenPath(targetPath) {
   return false;
 }
 
-// Resolve symlinks and validate path safety
-async function validatePath(targetPath) {
+// Max symlink chain depth to prevent escape attacks
+const MAX_SYMLINK_DEPTH = 5;
+
+// Resolve symlinks and validate path safety (with depth tracking)
+async function validatePath(targetPath, symlinkDepth = 0) {
   try {
+    // Check symlink chain depth
+    if (symlinkDepth > MAX_SYMLINK_DEPTH) {
+      return { valid: false, error: 'Too many symbolic links in path' };
+    }
+    
     // Defense-in-depth: Check for path traversal patterns before resolving
     if (targetPath.includes('..') || targetPath.includes('%2e%2e')) {
       return { valid: false, error: 'Path traversal not allowed' };
     }
     
-    // Resolve the real path (follows symlinks)
+    // Check if this is a symlink and track depth
+    const lstats = await fs.promises.lstat(targetPath);
+    if (lstats.isSymbolicLink()) {
+      const resolvedPath = await fs.promises.readlink(targetPath);
+      const absoluteResolved = path.isAbsolute(resolvedPath) 
+        ? resolvedPath 
+        : path.resolve(path.dirname(targetPath), resolvedPath);
+      return validatePath(absoluteResolved, symlinkDepth + 1);
+    }
+    
+    // Resolve the real path (follows any remaining symlinks)
     const realPath = await fs.promises.realpath(targetPath);
     
     // Check if the resolved path is forbidden
@@ -1277,6 +1295,7 @@ app.whenReady().then(() => {
 
 // IPC Rate Limiting (prevents renderer process from flooding main process)
 const ipcRateLimiter = new Map();
+const MAX_RATE_LIMIT_ENTRIES = 50; // Prevent memory exhaustion
 const IPC_RATE_LIMITS = {
   'select-projects-folder': 1000,  // 1 second (opens dialog)
   'rescan-projects': 2000,          // 2 seconds (heavy file system op)
@@ -1290,7 +1309,24 @@ function getMonotonicTime() {
   return Number(process.hrtime.bigint() / 1000000n);
 }
 
+// Clean up old rate limit entries to prevent memory exhaustion
+function cleanupRateLimiter() {
+  if (ipcRateLimiter.size > MAX_RATE_LIMIT_ENTRIES) {
+    // Remove oldest entries (first ones in Map iteration order)
+    const entriesToRemove = ipcRateLimiter.size - MAX_RATE_LIMIT_ENTRIES + 10;
+    let removed = 0;
+    for (const key of ipcRateLimiter.keys()) {
+      if (removed >= entriesToRemove) break;
+      ipcRateLimiter.delete(key);
+      removed++;
+    }
+  }
+}
+
 function checkIpcRateLimit(channel) {
+  // Prevent memory exhaustion from too many channels
+  cleanupRateLimiter();
+  
   const now = getMonotonicTime();
   const lastCall = ipcRateLimiter.get(channel) || 0;
   const limit = IPC_RATE_LIMITS[channel] || IPC_RATE_LIMITS['default'];
