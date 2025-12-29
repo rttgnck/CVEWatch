@@ -79,10 +79,12 @@ export function CVEProvider({ children }) {
         );
         
         criticalCVEs.slice(0, 3).forEach(cve => {
+          // Only pass URL if it's from NVD (defense in depth - main process also validates)
+          const safeUrl = cve.url?.startsWith('https://nvd.nist.gov/') ? cve.url : undefined;
           window.electronAPI.showNotification(
             `${cve.severity} CVE: ${cve.id}`,
             sanitizeForNotification(cve.description, 100),
-            cve.url
+            safeUrl
           );
         });
       }

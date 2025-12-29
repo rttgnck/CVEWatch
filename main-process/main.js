@@ -1482,6 +1482,12 @@ function isValidExternalUrl(url) {
   if (!url || typeof url !== 'string' || url.length > MAX_URL_LENGTH) {
     return false;
   }
+  
+  // Block injection characters (null bytes, newlines can bypass shell.openExternal)
+  if (url.includes('\x00') || url.includes('\n') || url.includes('\r')) {
+    return false;
+  }
+  
   try {
     const parsed = new URL(url);
     return ['http:', 'https:'].includes(parsed.protocol);
