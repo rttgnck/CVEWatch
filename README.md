@@ -2,7 +2,8 @@
 
 A native-feeling macOS menu bar app that tracks CVEs for specific products you care about.
 
-![CVE Watch Screenshot](screenshot.png)
+<img src="screenshot.png" width="500" alt="CVE Watch Screenshot">
+
 
 ## Features
 
@@ -13,7 +14,8 @@ A native-feeling macOS menu bar app that tracks CVEs for specific products you c
 - ⚡ **Background polling** — Configurable interval to check for new CVEs
 - 📦 **100+ products** — Pre-configured list across 13 categories
 
-![CVE Watch Screenshot 2](screenshot_2.png)
+<img src="screenshot_2.png" width="500" alt="CVE Watch Screenshot 2">
+
 
 ## Tech Stack
 
