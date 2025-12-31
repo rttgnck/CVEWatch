@@ -8,8 +8,13 @@ import ProductPicker from './components/ProductPicker';
 import Settings from './components/Settings';
 import EmptyState from './components/EmptyState';
 import ProjectsSection from './components/ProjectsSection';
+import packageJson from '../package.json';
+
 
 function App() {
+  const version = packageJson.version || 'dev';
+  console.log('Version:', version);
+
   const { preferences } = usePreferences();
   const { cves, isLoading, error, lastUpdated, refresh } = useCVE();
   const [activeView, setActiveView] = useState('feed');
@@ -208,6 +213,7 @@ function App() {
           <span className="text-xs text-lp-text-secondary">
             {isLoading ? 'Fetching...' : 'Ready'}
           </span>
+          <div className="text-xs text-lp-text-muted">v{version}</div>
         </div>
         <span className="text-xs text-lp-text-muted">
           Auto-refresh: {preferences.pollInterval || 30}m

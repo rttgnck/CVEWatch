@@ -160,8 +160,107 @@ const DEPENDENCY_FILES = {
 const SKIP_DIRS = [
   'node_modules', '.git', 'vendor', 'venv', '.venv', 'env', 
   '__pycache__', 'target', 'build', 'dist', '.next', '.nuxt',
-  '.cache', 'coverage', '.nyc_output', 'bower_components'
+  '.cache', 'coverage', '.nyc_output', 'bower_components',
+  '.ssh', '.gnupg', '.aws', '.azure', '.gcloud', '.kube'
 ];
+
+// Sensitive files to explicitly skip (secrets, credentials, environment files)
+const SKIP_FILES = [
+  // Environment files
+  '.env', '.env.local', '.env.development', '.env.production', '.env.staging',
+  '.env.test', '.env.example', '.env.sample', '.env.defaults', '.envrc',
+  
+  // NPM/Yarn auth tokens
+  '.npmrc', '.yarnrc', '.yarnrc.yml',
+  
+  // Python credentials
+  '.pypirc', '.piprc',
+  
+  // Network/SSH credentials
+  '.netrc', '.curlrc', '.wgetrc',
+  'id_rsa', 'id_rsa.pub', 'id_dsa', 'id_dsa.pub', 'id_ed25519', 'id_ed25519.pub',
+  'id_ecdsa', 'id_ecdsa.pub', 'known_hosts', 'authorized_keys',
+  
+  // Cloud provider credentials
+  'credentials', 'config.json', 'credentials.json', 'service-account.json',
+  'gcloud-service-key.json', 'firebase-adminsdk.json',
+  
+  // Docker/Kubernetes secrets
+  '.dockerconfigjson', 'kubeconfig',
+  
+  // Certificates and keys
+  'private.key', 'private.pem', 'server.key', 'server.pem',
+  'client.key', 'client.pem', 'ca.key', 'ca.pem',
+  
+  // Application secrets
+  'secrets.json', 'secrets.yml', 'secrets.yaml', 'secrets.toml',
+  'credentials.yml', 'credentials.yaml', 'master.key',
+  '.secret', 'secret.key', 'encryption.key',
+  
+  // Database credentials
+  '.pgpass', '.my.cnf', '.mongorc.js',
+  
+  // Web server passwords
+  '.htpasswd', '.htaccess',
+  
+  // History files (may contain secrets)
+  '.bash_history', '.zsh_history', '.node_repl_history', '.python_history',
+  '.irb_history', '.mysql_history', '.psql_history', '.rediscli_history',
+  
+  // IDE/Editor settings that might contain tokens
+  '.idea/secrets.xml', 'settings.json'
+];
+
+// File extensions to skip (certificates, keys, keystores)
+const SKIP_EXTENSIONS = [
+  '.pem', '.key', '.crt', '.cer', '.p12', '.pfx', '.jks', '.keystore',
+  '.p8', '.p7b', '.p7c', '.der', '.gpg', '.asc', '.kdbx'
+];
+
+// Check if a file should be skipped (secrets, credentials, sensitive files)
+function shouldSkipFile(fileName) {
+  // Check exact file name matches
+  if (SKIP_FILES.includes(fileName)) {
+    return true;
+  }
+  
+  // Check file extension
+  const ext = path.extname(fileName).toLowerCase();
+  if (SKIP_EXTENSIONS.includes(ext)) {
+    return true;
+  }
+  
+  // Check common patterns for secrets files (case-insensitive)
+  const lowerName = fileName.toLowerCase();
+  
+  // Skip .env variants
+  if (lowerName.startsWith('.env')) {
+    return true;
+  }
+  
+  // Skip files containing 'secret' or 'credential' in name
+  if (lowerName.includes('secret') || lowerName.includes('credential')) {
+    return true;
+  }
+  
+  // Skip private key files
+  if (lowerName.includes('private') && (lowerName.endsWith('.key') || lowerName.endsWith('.pem'))) {
+    return true;
+  }
+  
+  // Skip token files
+  if (lowerName.includes('token') && (lowerName.endsWith('.json') || lowerName.endsWith('.txt'))) {
+    return true;
+  }
+  
+  // Skip auth/api key files
+  if ((lowerName.includes('api') && lowerName.includes('key')) && 
+      (lowerName.endsWith('.json') || lowerName.endsWith('.txt') || lowerName.endsWith('.env'))) {
+    return true;
+  }
+  
+  return false;
+}
 
 // Max file size for reading dependency files (25MB)
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -303,6 +402,11 @@ async function scanProjectsFolder(rootPath, maxDepth = 5) {
     
     // Process all entries
     for (const entry of entries) {
+      // Skip sensitive files (secrets, credentials, env files)
+      if (entry.isFile() && shouldSkipFile(entry.name)) {
+        continue;
+      }
+      
       if (entry.isFile() && DEPENDENCY_FILES[entry.name]) {
         // Found a dependency file
         const filePath = path.join(dirPath, entry.name);

@@ -22,7 +22,6 @@ module.exports = {
         ]
       },
       colors: {
-        // LessPorts exact colors from screenshot
         'lp': {
           // Backgrounds
           'bg': '#0d0b14',           // Main background (darkest)

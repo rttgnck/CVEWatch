@@ -1,6 +1,6 @@
 {
   "name": "cve-watch",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A macOS menu bar app for tracking CVEs on products you care about",
   "main": "main-process/main.js",
   "engines": {

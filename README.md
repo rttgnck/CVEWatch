@@ -1,6 +1,6 @@
 # CVE Watch
 
-A beautiful, native-feeling macOS menu bar app that tracks CVEs for specific products you care about.
+A native-feeling macOS menu bar app that tracks CVEs for specific products you care about.
 
 ![CVE Watch Screenshot](screenshot.png)
 
@@ -13,6 +13,8 @@ A beautiful, native-feeling macOS menu bar app that tracks CVEs for specific pro
 - ⚡ **Background polling** — Configurable interval to check for new CVEs
 - 📦 **100+ products** — Pre-configured list across 13 categories
 
+![CVE Watch Screenshot 2](screenshot_2.png)
+
 ## Tech Stack
 
 - **Electron** — Cross-platform desktop framework
@@ -24,6 +26,12 @@ A beautiful, native-feeling macOS menu bar app that tracks CVEs for specific pro
 - **SQLite** — Local CVE cache (planned)
 
 ## Development
+- Open for suggestions/collaboration.
+
+## Changelog
+v1.0.2 - Only looks at the dependency files in scanned projects folders, explicitly skips secrets files (main.js).
+v1.0.1 - Copilot suggested updates.
+v1.0.0 - Initial release.
 
 ### Prerequisites
 
@@ -117,7 +125,7 @@ If you discover a security vulnerability, please report it privately to the auth
 
 ## License
 
-This project is not licensed for use. All rights reserved. No usage, copying, modification, or distribution permitted without explicit written permission from the author.
+This project is not licensed outside personal use. All rights reserved. No copying, modification, or distribution permitted without explicit written permission from the author.
 
 ## Acknowledgments
 

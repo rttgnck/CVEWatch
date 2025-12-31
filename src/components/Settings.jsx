@@ -1,11 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { usePreferences } from '../contexts/PreferencesContext';
+import packageJson from '../../package.json';
 
 function Settings({ onClose }) {
-  const version = process.env.npm_package_version || '1.0.1';
+  const version = packageJson.version || 'dev';
   console.log('Version:', version);
-  
+
   const { preferences, updatePreference } = usePreferences();
 
   const pollIntervals = [
@@ -122,7 +123,7 @@ function Settings({ onClose }) {
             </div>
             <div>
               <div className="text-sm font-semibold text-lp-text">CVE Watch</div>
-              <div className="text-xs text-lp-text-muted">Version {version}</div>
+              <div className="text-xs text-lp-text-muted">v{version}</div>
             </div>
           </div>
           <p className="text-xs text-lp-text-secondary leading-relaxed">
