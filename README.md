@@ -1,135 +1,100 @@
 # CVE Watch
 
-A native-feeling macOS menu bar app that tracks CVEs for specific products you care about.
+A VS Code extension that tracks CVEs for products you care about and scans your workspace for vulnerable dependencies.
 
-![CVE Watch Screenshot](screenshot.png)
+![CVE Watch](screenshot.png)
 
 ## Features
 
 - 🔍 **Product-specific tracking** — Choose exactly which technologies to monitor (React, PostgreSQL, nginx, etc.)
-- 🎨 **Native macOS feel** — Vibrancy effects, SF Pro typography, smooth animations
-- 🌓 **Automatic theme switching** — Seamlessly follows your system appearance
+- 📦 **Workspace scanning** — Automatically detect dependencies in your projects
 - 🔔 **Critical CVE alerts** — Get notified about high-severity vulnerabilities
 - ⚡ **Background polling** — Configurable interval to check for new CVEs
 - 📦 **100+ products** — Pre-configured list across 13 categories
 
-![CVE Watch Screenshot 2](screenshot_2.png)
+## Installation
 
-## Tech Stack
+### From VSIX
 
-- **Electron** — Cross-platform desktop framework
-- **React** — UI library
-- **Tailwind CSS** — Utility-first styling
-- **Framer Motion** — Buttery smooth animations
-- **NVD API v2.0** — Official CVE data source
-- **electron-store** — Persistent preferences
-- **SQLite** — Local CVE cache (planned)
+1. Download the `.vsix` file
+2. In VS Code, press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+3. Type "Extensions: Install from VSIX..."
+4. Select the downloaded `.vsix` file
 
-## Development
-- Open for suggestions/collaboration.
+### From Marketplace
 
-## Changelog
-v1.0.2 - Only looks at the dependency files in scanned projects folders, explicitly skips secrets files (main.js).
-v1.0.1 - Copilot suggested updates.
-v1.0.0 - Initial release.
+Search for "CVE Watch" in the VS Code Extensions marketplace.
 
-### Prerequisites
+## Usage
 
-- Node.js 18+
-- npm or yarn
-
-### Install dependencies
-
-```bash
-npm install
-```
-
-### Run in development mode
-
-```bash
-npm run dev
-```
-
-This starts both the Vite dev server and Electron in parallel.
-
-### Build for production
-
-```bash
-npm run build
-```
-
-This creates a distributable `.dmg` in the `dist/` folder.
+1. Click the shield icon in the Activity Bar to open CVE Watch
+2. Go to the "Products" tab and select technologies to track
+3. CVE Watch will automatically fetch recent vulnerabilities
+4. Click on any CVE to see details and open on NVD
 
 ## Configuration
 
-CVE Watch stores preferences using `electron-store`:
+CVE Watch can be configured in VS Code Settings:
 
-- **Products** — List of technologies to track
-- **Poll Interval** — How often to check for new CVEs (15min - 6hr)
-- **Notifications** — Enable/disable critical CVE alerts
-- **Theme** — System, Light, or Dark
+- **cveWatch.products** — List of products to track CVEs for
+- **cveWatch.pollInterval** — How often to check for new CVEs (15-1440 minutes)
+- **cveWatch.notifications** — Show notifications for critical CVEs
+- **cveWatch.autoScanWorkspace** — Automatically scan workspace for dependencies
+
+## Commands
+
+- `CVE Watch: Open Panel` — Open the CVE Watch panel
+- `CVE Watch: Refresh CVEs` — Manually refresh the CVE feed
+- `CVE Watch: Scan Workspace for Dependencies` — Scan workspace for package files
 
 ## NVD API Usage
 
-This app uses the [NVD API v2.0](https://nvd.nist.gov/developers/vulnerabilities) to fetch CVE data.
+This extension uses the [NVD API v2.0](https://nvd.nist.gov/developers/vulnerabilities) to fetch CVE data.
 
 **Rate Limits:**
 - Without API key: 5 requests per 30 seconds
-- With API key: 50 requests per 30 seconds
 
-To use an API key, add it to your preferences or set the `NVD_API_KEY` environment variable.
+The extension implements caching and rate limiting to stay within these limits.
 
-## Project Structure
+## Supported Dependency Files
 
+CVE Watch can scan the following dependency files:
+
+- **Node.js**: package.json, package-lock.json, yarn.lock
+- **Python**: requirements.txt, Pipfile, Pipfile.lock, pyproject.toml
+- **Rust**: Cargo.toml, Cargo.lock
+- **Go**: go.mod, go.sum
+- **Ruby**: Gemfile, Gemfile.lock
+- **Java**: pom.xml, build.gradle
+- **PHP**: composer.json
+- **Dart**: pubspec.yaml
+- **iOS**: Podfile, Podfile.lock
+
+## Building from Source
+
+```bash
+# Install dependencies
+npm install
+
+# Compile TypeScript
+npm run compile
+
+# Package as VSIX
+npm run package
 ```
-CVEWatch/
-├── electron/           # Electron main process
-│   ├── main.js         # Main entry, tray, window management
-│   └── preload.js      # Context bridge for IPC
-├── src/
-│   ├── components/     # React components
-│   ├── contexts/       # React contexts (Theme, Preferences, CVE)
-│   ├── data/           # Static data (products list)
-│   ├── services/       # API services (NVD)
-│   └── styles/         # Global CSS
-├── assets/             # App icons, tray icons
-└── package.json
-```
 
-## Security
+## Changelog
 
-CVE Watch implements several security measures:
-
-- **Content Security Policy (CSP)** — Strict CSP headers prevent XSS attacks
-- **Context Isolation** — Renderer process is sandboxed from Node.js APIs
-- **Input Validation** — All user inputs and API responses are validated
-- **DOMPurify Sanitization** — All external content is sanitized before rendering
-- **Rate Limiting** — IPC calls are rate-limited to prevent abuse
-- **HTTPS Only** — All external connections use HTTPS
-- **Path Validation** — File system access is restricted to user directories
-- **Symlink Protection** — Symlink chains are limited to prevent escape attacks
-
-### Known Limitations
-
-- **CSP `unsafe-inline` for styles** — Required for Tailwind CSS. XSS is mitigated by DOMPurify sanitization of all external content.
-
-### Security Notes for Developers
-
-- **Never share debug logs publicly** — Debug logs (only generated in development mode) may contain file paths and system information
-- **Run `npm audit` regularly** — Check for dependency vulnerabilities before releases (use `npm run audit`)
-- **Test security warnings** — Run with `app.commandLine.appendSwitch('enable-logging')` to see Electron security warnings
-
-### Reporting Vulnerabilities
-
-If you discover a security vulnerability, please report it privately to the author rather than opening a public issue.
+- v1.0.3 - Converted to VS Code extension
+- v1.0.2 - Only looks at the dependency files in scanned projects folders
+- v1.0.1 - Copilot suggested updates
+- v1.0.0 - Initial release (Electron app)
 
 ## License
 
-This project is not licensed outside personal use. All rights reserved. No copying, modification, or distribution permitted without explicit written permission from the author.
+This project is not licensed outside personal use. All rights reserved.
 
 ## Acknowledgments
 
 - [National Vulnerability Database (NVD)](https://nvd.nist.gov/) for CVE data
-- [Electron](https://www.electronjs.org/) for the framework
-- [Tailwind CSS](https://tailwindcss.com/) for styling utilities
-
+- [VS Code Extension API](https://code.visualstudio.com/api) for the extension framework

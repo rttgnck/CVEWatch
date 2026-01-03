@@ -1,96 +1,119 @@
 {
   "name": "cve-watch",
-  "version": "1.0.2",
-  "description": "A macOS menu bar app for tracking CVEs on products you care about",
-  "main": "main-process/main.js",
+  "displayName": "CVE Watch",
+  "description": "Track CVEs for products you care about and scan your projects for vulnerable dependencies",
+  "version": "1.0.3",
+  "publisher": "intek",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rttgnck/cvewatch"
+  },
   "engines": {
-    "node": ">=18"
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "cve",
+    "security",
+    "vulnerability",
+    "nvd",
+    "dependencies"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "icon": "assets/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cveWatch.openPanel",
+        "title": "CVE Watch: Open Panel",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "cveWatch.refresh",
+        "title": "CVE Watch: Refresh CVEs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "cveWatch.scanWorkspace",
+        "title": "CVE Watch: Scan Workspace for Dependencies"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cveWatch",
+          "title": "CVE Watch",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cveWatch": [
+        {
+          "type": "webview",
+          "id": "cveWatch.mainView",
+          "name": "CVE Watch"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CVE Watch",
+      "properties": {
+        "cveWatch.products": {
+          "type": "array",
+          "default": [],
+          "description": "List of products to track CVEs for"
+        },
+        "cveWatch.pollInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 15,
+          "maximum": 1440,
+          "description": "How often to check for new CVEs (in minutes)"
+        },
+        "cveWatch.notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for critical CVEs"
+        },
+        "cveWatch.autoScanWorkspace": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan workspace for dependencies on startup"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "cveWatch.refresh",
+          "when": "view == cveWatch.mainView",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
-    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
-    "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && electron .",
-    "build": "vite build && electron-builder",
-    "build:vite": "vite build",
-    "build:icons": "node scripts/generate-app-icons.js",
-    "preview": "vite preview",
-    "preview:electron": "npm run build:vite && NODE_ENV=production electron .",
-    "audit": "npm audit --audit-level=moderate",
-    "audit:fix": "npm audit fix",
-    "predev": "npm audit --audit-level=high || true",
-    "prebuild": "npm audit --audit-level=high || true"
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.config.js",
+    "watch": "node esbuild.config.js --watch",
+    "package": "vsce package",
+    "lint": "eslint src --ext ts"
   },
-  "author": "intek",
   "devDependencies": {
-    "@electron/fuses": "^2.0.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "concurrently": "^8.2.2",
-    "electron": "^33.4.11",
-    "electron-builder": "^26.0.12",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.0",
-    "vite": "^5.4.21",
-    "wait-on": "^7.2.0"
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.2",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.3.0"
   },
   "dependencies": {
-    "dompurify": "^3.3.1",
-    "electron-store": "^8.1.0",
-    "framer-motion": "^10.17.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "build": {
-    "appId": "com.cvewatch.app",
-    "productName": "CVE Watch",
-    "mac": {
-      "icon": "assets/icon.icns",
-      "category": "public.app-category.developer-tools",
-      "target": [
-        "dmg"
-      ],
-      "extendInfo": {
-        "LSUIElement": true,
-        "LSBackgroundOnly": false,
-        "NSRequiresAquaSystemAppearance": false
-      }
-    },
-    "dmg": {
-      "icon": "assets/icon.icns",
-      "title": "${productName} ${version}",
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ],
-      "window": {
-        "width": 540,
-        "height": 400
-      }
-    },
-    "files": [
-      "dist/index.html",
-      "dist/assets/**/*",
-      "main-process/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "assets",
-        "to": "assets",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "directories": {
-      "output": "release"
-    }
+    "dompurify": "^3.3.1"
   }
 }
